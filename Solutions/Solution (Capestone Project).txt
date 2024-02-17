@@ -1,0 +1,578 @@
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Spark - Core 
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+1. Determine the total revenue earned by the e-commerce company, taking into account the price of products purchased and subtracting any applicable discounts. (2 marks)
+
+val rdd1 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Customer Purchase History.csv")
+val header1 = rdd1.first()
+val rdd2 = rdd1.filter(r=>r!=header1).map(r=>(r.split(",")))
+rdd2.collect()
+
+val rdd3 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Product Catalog.csv")
+val header2 = rdd3.first()
+val rdd4 = rdd3.filter(r=>r!=header2).map(r=>(r.split(",")))
+rdd4.collect()
+
+case class Customer_Purchase_history (Customer_ID:String, Purchase_Date:String, Product_ID:String, Discount_Applied:Float)
+
+case class Product_Catalog(Product_ID:String, Product_Name:String, Product_Category:String, Price:Float, Rating:Float)
+
+val CusRDD = rdd2.map(r=>(r(2), Customer_Purchase_history(r(0), r(1), r(2), r(3).toFloat)))
+val ProdRDD = rdd4.map(r=>(r(0), Product_Catalog(r(0), r(1), r(2), r(3).toFloat, r(4).toFloat)))
+val rdd5 = CusRDD.join(ProdRDD)
+val Total_Rev = rdd5.map(r=>(r._2._2.Price -  (r._2._1.Discount_Applied*r._2._2.Price)/100)).reduce(_+_)
+print("Total Revenue earned by the e-commerce company is " + Total_Rev)
+
+----------------
+Output: Total Revenue earned by the e-commerce company is 24294.285
+----------------
+
+2. Compute the total discount given by the e-commerce company by summing up the Discount Applied field in the Customer Purchase History dataset. (2 marks)
+
+val Discount = rdd5.map(r=>(r._2._1.Discount_Applied*r._2._2.Price)/100).reduce(_+_)
+print("Discount given by e-commerce company is "+ Discount)
+
+---------------
+Output: Discount given by e-commerce company is 4465.3135
+---------------
+
+3. Perform an analysis to find the average purchase amount (excluding discounts) for each category of products by joining the customer purchase history and product catalog dataset. (2 marks)
+
+val rdd5 = CusRDD.join(ProdRDD)
+val rdd6 = rdd5.map(r=>(r._2._2.Product_Category,1)).reduceByKey(_+_)
+rdd6.foreach(println)
+val rdd7 = rdd5.map(r=>(r._2._2.Product_Category,r._2._2.Price)).reduceByKey(_+_)
+val rdd8 = rdd6.join(rdd7)
+val rdd9 = rdd8.map(r=>(r._1, r._2._2/r._2._1))
+rdd9.foreach(println)
+
+--------------------------------
+
+(Food,5.3233333)
+(Outdoor Gear,270.82333)
+(Bedding,79.990005)
+(Fashion,127.490005)
+(Clothing,84.605385)
+(Food and Beverages,15.49)
+(Appliances,195.99)
+(Home Decor,71.99)
+(Electronics,628.4516)
+(Outdoors,154.99)
+(Beauty,33.99)
+(Sports,62.489998)
+(Home,18.789999)
+
+-------------------------------
+
+4. Identify the days with the highest bounce rate in the Website Traffic and User Behavior dataset. (2 marks)
+
+val rdd10 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Website traffic and user behavior.csv")
+val header3 = rdd10.first()
+val rdd11 = rdd10.filter(r=>r!=header3).map(r=>(r.split(",")))
+rdd11.collect()
+val rdd12 = rdd11.map(r=>(r(0),(r(3).toInt*r(1).toInt*0.01, r(1).toInt)))
+val rdd12_1 = rdd12.reduceByKey((a,b) => (a._1 + b._1, a._2 + b._2)).map(r=>(r._1, (r._2._1/r._2._2*100).round))
+val rdd12_2 = rdd12_1.sortBy(r=>r._2,false,numPartitions=1)
+val highest = rdd12_2.first()
+val rdd12_3 = rdd12_1.filter(r=> (r._2==highest._2))
+rdd12_3.foreach(println)
+
+---------------------------------
+(2021-07-08,90)
+(2022-10-26,90)
+(2022-09-07,90)
+(2022-01-26,90)
+(2023-02-10,90)
+(2022-08-27,90)
+--------------------------------
+
+
+5. Calculate the average rating for each category in the Product Catalog dataset. (2 marks)
+
+val rdd13 = rdd4.map(r=>(r(2),(r(4).toFloat, 1)))
+val rdd14 = rdd13.reduceByKey{ case((a1,b1), (a2,b2)) =>(a1+a2, b1+b2)}
+val rdd15 = rdd14.mapValues{ case(sum,count) =>(sum.toFloat/count)}
+rdd15.foreach(println)
+
+------------------------------------
+(Outdoor Gear,4.6615386)
+(Food,4.2)
+(Bedding,4.8)
+(Fashion,4.633333)
+(Food and Beverages,4.2571425)
+(Clothing,4.1538463)
+(Electronics,4.6)
+(Appliances,4.55)
+(Outdoors,4.366667)
+(Home Decor,4.064706)
+(Sports,4.35)
+(Beauty,4.35)
+(Home,3.8249998)
+-------------------------------------
+
+6. Determine the most popular product category based on the number of purchases in the customer purchase history dataset. (2 marks)
+
+val rdd16 = rdd5.map(r=>(r._2._2.Product_Category, 1)).reduceByKey(_+_)
+val rdd17 = rdd16.sortBy(r=>r._2, false, numPartitions = 1)
+rdd17.first()
+or
+rdd17.take(1).foreach(println)
+
+--------------------------------
+res40: (String, Int) = (Electronics,26)
+---------------------------------
+
+
+7. Identify the top 5 customers with the highest purchase amount by joining the customer purchase history and product catalog dataset. (3 marks)
+
+val rdd18 = rdd5.map(r=>(r._2._1.Customer_ID, r._2._2.Price - (r._2._1.Discount_Applied*r._2._2.Price)/100)).reduceByKey(_+_).sortBy(r=>r._2, false, numPartitions=1).take(5)
+
+rdd18.foreach(println)
+
+------------------------------
+(CUST132,1424.9905)
+(CUST064,1124.9924)
+(CUST083,1109.9927)
+(CUST096,941.9921)
+(CUST006,894.991)
+------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+Spark - SQL 
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+1. Find the product categories with the highest and lowest average rating in the product catalog dataset. (3 marks)
+
+val df1 = spark.read.option("inferSchema", "true").option("header", "true").csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Product Catalog.csv").toDF("Product_ID", "Product_Name", "Product_Category", "Price", "Rating")
+
+df1.createOrReplaceTempView("Product_Catalog");
+
+val res1 = spark.sql("select Product_Category, round(avg(Rating),2) as Avg_Rating from Product_Catalog group by Product_Category having avg(Rating) == (select avg(Rating) from Product_Catalog group by Product_Category order by avg(Rating) limit 1) or avg(Rating) == (select avg(Rating) from Product_Catalog group by Product_Category order by avg(Rating) desc limit 1)")
+
+res1.show()
+
++----------------+----------+
+|Product_Category|Avg_Rating|
++----------------+----------+
+|            Home|      3.82|
+|         Bedding|       4.8|
++----------------+----------+
+
+
+2. Identify the customers who have made a purchase with a discount lesser than or equal to 10 in the customer purchase history dataset. (2 marks)
+
+val df2 = spark.read.option("inferSchema", "true").option("header", "true").csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Customer Purchase History.csv").toDF("Customer_ID", "Purchase_Date", "Product_ID", "Discount_Applied")
+
+df2.createOrReplaceTempView("Customer_Pur")
+
+val res2 = spark.sql("select Customer_ID, Discount_Applied from Customer_Pur where Discount_Applied <= 10")
+
+res2.show()
+
++-----------+----------------+
+|Customer_ID|Discount_Applied|
++-----------+----------------+
+|    CUST001|             5.0|
+|    CUST003|             8.5|
+|    CUST005|             4.0|
+|    CUST011|             6.0|
+|    CUST012|             9.0|
+|    CUST017|             5.5|
+|    CUST018|            10.0|
+|    CUST021|             8.0|
+|    CUST023|             3.5|
+|    CUST029|             7.0|
+|    CUST031|             3.0|
+|    CUST033|             9.0|
+|    CUST038|             5.0|
+|    CUST039|             9.0|
+|    CUST043|             2.0|
+|    CUST047|             8.5|
+|    CUST051|             9.5|
+|    CUST053|             3.5|
+|    CUST055|             3.5|
+|    CUST056|             9.5|
++-----------+----------------+
+only showing top 20 rows
+
+3. Determine the average session duration for each day in the website traffic and user behavior dataset. (2 marks)
+
+val df3 = spark.read.option("header","true").option("inferSchema","true").csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Website traffic and user behavior.csv").toDF("Date","PageViews","UniqueVisitors","BounceRate","SessionDuration")
+
+df3.createOrReplaceTempView("Web_traffic")
+
+spark.sql("select Date, round(avg(SessionDuration),2) as Avg_Session_Duration from Web_traffic group by Date").show()
+
++-------------------+--------------------+
+|               Date|Avg_Session_Duration|
++-------------------+--------------------+
+|2021-08-28 00:00:00|               153.0|
+|2021-05-29 00:00:00|               164.0|
+|2021-11-19 00:00:00|                89.0|
+|2022-03-02 00:00:00|               190.0|
+|2022-06-22 00:00:00|               108.0|
+|2022-06-28 00:00:00|               225.0|
+|2022-05-28 00:00:00|                43.0|
+|2021-01-12 00:00:00|               106.0|
+|2021-04-30 00:00:00|               188.0|
+|2022-10-19 00:00:00|                54.0|
+|2021-10-19 00:00:00|               163.0|
+|2021-09-03 00:00:00|               171.0|
+|2022-10-20 00:00:00|              120.33|
+|2021-07-24 00:00:00|              156.67|
+|2023-02-19 00:00:00|               149.5|
+|2023-03-06 00:00:00|                34.0|
+|2022-11-14 00:00:00|                57.0|
+|2023-01-24 00:00:00|              133.67|
+|2021-09-05 00:00:00|                73.0|
+|2023-03-15 00:00:00|                35.0|
++-------------------+--------------------+
+only showing top 20 rows
+
+
+4. Find the product with the highest rating in each category in the product catalog dataset. (2 marks)
+
+val rdd4 = spark.sql("select p.Product_ID, p.Product_Category, p.Product_Name, p.Rating from Product_Catalog p where p.Rating = (select max(prod.Rating) from Product_Catalog prod where p.Product_Category = prod.Product_Category)")
+
+rdd4.show()
+
++----------+------------------+---------------+------+
+|Product_ID|  Product_Category|   Product_Name|Rating|
++----------+------------------+---------------+------+
+|    PRD002|            Sports|     MightyGrip|   4.5|
+|    PRD010|           Bedding|   EliteComfort|   4.8|
+|    PRD013|        Appliances|     PowerBoost|   4.9|
+|    PRD014|              Food|  GoldenHarvest|   4.3|
+|    PRD016|           Fashion|ClassicElegance|   4.7|
+|    PRD017|              Home|       CozyNest|   4.1|
+|    PRD018|          Outdoors|   AdventurePro|   4.5|
+|    PRD019|           Bedding|     SoftDreams|   4.8|
+|    PRD025|           Bedding|      CloudNine|   4.8|
+|    PRD027|            Beauty|       SilkGlow|   4.7|
+|    PRD031|       Electronics|       TechZone|   4.9|
+|    PRD033|Food and Beverages|   HealthyBites|   4.7|
+|    PRD045|      Outdoor Gear|  AdventureGear|   4.9|
+|    PRD062|       Electronics|     TechXtreme|   4.9|
+|    PRD065|        Home Decor|    CozyCushion|   4.5|
+|    PRD066|       Electronics|        TechPro|   4.9|
+|    PRD076|       Electronics|      TechElite|   4.9|
+|    PRD088|       Electronics|     TechLuxury|   4.9|
+|    PRD090|          Clothing|     CozyHoodie|   4.6|
+|    PRD098|       Electronics|      TechSavvy|   4.9|
++----------+------------------+---------------+------+
+
+5. Determine the average discount amount applied on each product category by joining the customer purchase history and product catalog dataset. (2 marks)
+
+val res5 = spark.sql("select p.Product_Category, round(avg((c.Discount_Applied*p.Price)/100),2) as Avg_Discount_Amount from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID group by p.Product_Category")
+
+res5.show()
+
++------------------+-------------------+
+|  Product_Category|Avg_Discount_Amount|
++------------------+-------------------+
+|              Home|               0.88|
+|              Food|               0.29|
+|           Fashion|               8.42|
+|            Sports|               3.06|
+|       Electronics|              108.6|
+|          Outdoors|               6.36|
+|          Clothing|              12.53|
+|Food and Beverages|               3.11|
+|           Bedding|               4.63|
+|        Appliances|               8.67|
+|        Home Decor|              10.42|
+|            Beauty|               2.47|
+|      Outdoor Gear|              43.59|
++------------------+-------------------+
+
+
+6. Identify the top 10 products with the highest total revenue generated by joining the customer purchase history and product catalog dataset. (2 marks)
+
+val res6 = spark.sql("select p.Product_ID, p.Product_Name, sum(round(p.Price - (c.Discount_Applied*p.Price)/100, 2)) as Total_Revenue from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID group by p.Product_ID, p.Product_Name order by Total_Revenue desc limit 10")
+
+res6.show()
+
++----------+------------+------------------+
+|Product_ID|Product_Name|     Total_Revenue|
++----------+------------+------------------+
+|    PRD088|  TechLuxury|3659.9700000000003|
+|    PRD037|   TechTrend|           1784.98|
+|    PRD081|  TechMaster|           1430.97|
+|    PRD062|  TechXtreme|           1403.98|
+|    PRD042|  SmartSense|           1067.97|
+|    PRD066|     TechPro|            941.99|
+|    PRD086|HighAltitude|            917.98|
+|    PRD076|   TechElite|            789.99|
+|    PRD064| SnowySlopes|            770.97|
+|    PRD013|  PowerBoost|            719.97|
++----------+------------+------------------+
+
+
+7. Determine the mean bounce rate for the month of March, 2022. (2 marks)
+
+val res7 = spark.sql("select sum(BounceRate * PageViews / 100)/sum(PageViews) * 100 as Mean_Bounce_Rate from Web_traffic where Date like '2022-03-%'")
+
+res7.show()
+
++-----------------+
+| Mean_Bounce_Rate|
++-----------------+
+|49.66375708098149|
++-----------------+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+Pyspark - Core
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+1. Calculate the average session duration in seconds for each month in the year 2021 in the website traffic and user behavior dataset. (2 marks)
+
+rdd1 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Website traffic and user behavior.csv")
+header = rdd1.first()
+rdd2 = rdd1.filter(lambda r: r!=header).map(lambda r:r.split(","))
+rdd3 = rdd2.filter(lambda r: r[0].split("-")[0]=='2021').map(lambda r:(r[0].split("-")[1], (int(r[4]),1)))
+rdd3.collect()
+rdd4 = rdd3.reduceByKey(lambda a,b : (a[0]+b[0], a[1]+b[1]))
+rdd5 = rdd4.mapValues(lambda a: (a[0]/a[1]))
+rdd6 = rdd5.sortBy(lambda r: r[0], ascending=True)
+for word in rdd6.collect():
+	print("Average Session Duration in Month "+ word[0] + " is : " + str(word[1]))
+
+-----------------------------------------------
+
+Average Session Duration in Month 01 is : 132.02777777777777
+Average Session Duration in Month 02 is : 112.30434782608695
+Average Session Duration in Month 03 is : 150.4181818181818
+Average Session Duration in Month 04 is : 127.125
+Average Session Duration in Month 05 is : 152.88571428571427
+Average Session Duration in Month 06 is : 161.48888888888888
+Average Session Duration in Month 07 is : 151.83783783783784
+Average Session Duration in Month 08 is : 156.03030303030303
+Average Session Duration in Month 09 is : 156.65625
+Average Session Duration in Month 10 is : 137.025
+Average Session Duration in Month 11 is : 132.4181818181818
+Average Session Duration in Month 12 is : 126.6046511627907
+--------------------------------------------
+
+2. Find the date with the highest number of unique visitors from the website traffic and user behavior dataset. (2 marks)
+
+word= rdd2.map(lambda r: (r[0], int(r[2]))).reduceByKey(lambda a,b : a+ b).sortBy(lambda r: r[1], False, numPartitions = 1).first()
+print("Date is "+ word[0] + " and highest number of unique visitors is : "+str(word[1]))
+
+----------------------------------------
+Date is 2022-01-23 and highest number of unique visitors is : 14668
+----------------------------------------
+
+
+3. Calculate the total number of page views, unique visitors, bounce rate, and session duration for each date from the website traffic and user behavior dataset. (2 marks)
+
+rdd8 = rdd2.map(lambda r: (r[0], (int(r[1]), int(r[2]), int(r[3])*int(r[1])/100, int(r[4]))))
+rdd9 = rdd8.reduceByKey(lambda a, b: (a[0]+b[0], a[1]+b[1], a[2]+b[2], a[3]+b[3])).sortBy(lambda r: r[0], ascending=True)
+rdd9_1 = rdd9.map(lambda r: (r[0], (r[1][0], r[1][1], round((r[1][2]/r[1][0])*100,2), r[1][3])))
+for word in rdd9_1.collect():
+	print(word)
+
+---------------------------------------------
+
+('2023-03-09', (4579, 495, 70.0, 196))
+('2023-03-11', (6863, 6809, 49.27, 377))
+('2023-03-12', (3762, 4176, 66.0, 164))
+('2023-03-13', (10908, 5634, 55.9, 193))
+('2023-03-14', (15177, 3505, 26.45, 346))
+('2023-03-15', (8935, 6590, 29.85, 70))
+('2023-03-16', (8755, 3335, 80.0, 105))
+('2023-03-19', (9242, 1260, 52.0, 63))
+('2023-03-20', (8090, 6228, 13.65, 271))
+('2023-03-21', (16782, 3429, 39.93, 778))
+('2023-03-24', (17039, 1337, 74.6, 297))
+('2023-03-25', (7155, 2971, 19.0, 137))
+('2023-03-26', (5351, 4068, 76.0, 111))
+('2023-03-28', (9800, 6789, 84.27, 146))
+('2023-03-29', (8331, 3094, 72.97, 417))
+('2023-03-30', (5284, 3473, 12.0, 222))
+
+--------------------------------------------------
+
+
+4. Filter the customer purchase history dataset to include only the purchases made on June 13, 2020. (2 marks)
+
+rdd10 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Customer Purchase History.csv")
+rdd11 = rdd10.map(lambda r: r.split(","))
+rdd12 = rdd11.filter(lambda r:r[1]=='6/13/2020')
+for word in rdd12.collect():
+	print(word)
+
+----------------------------------------------
+
+['CUST027', '6/13/2020', 'PRD083', '32']
+['CUST055', '6/13/2020', 'PRD003', '3.5']
+['CUST083', '6/13/2020', 'PRD088', '26']
+['CUST111', '6/13/2020', 'PRD018', '3.5']
+
+---------------------------------------------
+
+5. Filter the product catalog dataset to include only products in the “Electronics” category and sort by price in ascending order. (2 marks)
+
+rdd11 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Product Catalog.csv")
+rdd12 = rdd11.map(lambda r:r.split(","))
+rdd13 = rdd12.filter(lambda r:r[2]=="Electronics").map(lambda r: (r[0], r[1], r[2], float(r[3]), float(r[4]))).sortBy(lambda r: r[3], ascending=True,numPartitions=1)
+for word in rdd13.collect():
+	print(word)
+
+------------------------------------------------
+('PRD015', 'SwiftCharge', 'Electronics', 69.99, 4.4)
+('PRD006', 'TrueCharge', 'Electronics', 119.99, 4.0)
+('PRD053', 'SmartWatch', 'Electronics', 149.99, 4.5)
+('PRD058', 'SmartHome', 'Electronics', 149.99, 4.4)
+('PRD001', 'SuperDuper', 'Electronics', 189.99, 4.2)
+('PRD083', 'SmartCam', 'Electronics', 199.99, 4.1)
+('PRD071', 'SmartPad', 'Electronics', 349.99, 4.7)
+('PRD042', 'SmartSense', 'Electronics', 399.99, 4.7)
+('PRD093', 'SmartGadget', 'Electronics', 399.99, 4.3)
+('PRD081', 'TechMaster', 'Electronics', 599.99, 4.7)
+('PRD047', 'TechSavvy', 'Electronics', 699.99, 4.8)
+('PRD031', 'TechZone', 'Electronics', 799.99, 4.9)
+('PRD062', 'TechXtreme', 'Electronics', 799.99, 4.9)
+('PRD098', 'TechSavvy', 'Electronics', 799.99, 4.9)
+('PRD037', 'TechTrend', 'Electronics', 999.99, 4.6)
+('PRD076', 'TechElite', 'Electronics', 999.99, 4.9)
+('PRD066', 'TechPro', 'Electronics', 1199.99, 4.9)
+('PRD088', 'TechLuxury', 'Electronics', 1499.99, 4.9)
+------------------------------------------------------
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+PySpark - SQL
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+1. Join the customer purchase history and product catalog datasets to create a new dataset with columns: Customer ID, Purchase Date, Product Name, Category, Amount Paid (Price after applying discount). (3 marks)
+
+df1 = spark.read.csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Customer Purchase History.csv", inferSchema=True, header=True).toDF("Customer_ID", "Purchase_Date", "Product_ID", "Discount_Applied")
+
+df1.createOrReplaceTempView("Customer_Pur")
+
+spark.sql("select * from Customer_Pur").show()
+
+df2 = spark.read.csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Product Catalog.csv", inferSchema=True, header=True).toDF("Product_ID", "Product_Name", "Product_Category", "Price", "Rating")
+
+df2.createOrReplaceTempView("Product_Catalog")
+
+spark.sql("select * from Product_Catalog").show()
+
+newDF = spark.sql("select c.Customer_ID, c.Purchase_Date, p.Product_Name, p.Product_category, round((p.Price-(p.Price*c.Discount_Applied)/100),2) as Amount_Paid from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID")
+
+newDF.show()
+
++-----------+-------------+----------------+------------------+-----------+
+|Customer_ID|Purchase_Date|    Product_Name|  Product_category|Amount_Paid|
++-----------+-------------+----------------+------------------+-----------+
+|    CUST001|     8/1/2022|      MightyGrip|            Sports|      47.49|
+|    CUST002|    7/12/2022|AlpineAdventurer|      Outdoor Gear|     399.99|
+|    CUST003|    6/17/2022|      DiamondCut|           Fashion|     137.24|
+|    CUST004|    5/20/2022|     ComfortWear|          Clothing|      42.49|
+|    CUST005|    4/21/2022|      PowerBoost|        Appliances|     239.99|
+|    CUST006|    3/22/2022|       TechTrend|       Electronics|     894.99|
+|    CUST007|    2/23/2022|      TechMaster|       Electronics|     419.99|
+|    CUST008|    1/24/2022|      SmartSense|       Electronics|     351.99|
+|    CUST009|   12/25/2021| AlpineAdventure|      Outdoor Gear|     224.99|
+|    CUST010|   11/26/2021|     Trailblazer|      Outdoor Gear|     325.99|
+|    CUST011|   10/27/2021|   GoldenHarvest|              Food|       5.63|
+|    CUST012|    9/28/2021|         SkyHigh|      Outdoor Gear|     136.49|
+|    CUST013|    8/29/2021|    MountainMist|        Home Decor|      51.99|
+|    CUST014|    7/30/2021|       UrbanChic|          Clothing|     129.74|
+|    CUST015|     6/1/2021|      UrbanSleek|          Clothing|      62.39|
+|    CUST016|     5/2/2021|      BrightLuxe|          Clothing|      33.59|
+|    CUST017|     4/3/2021|        CozyNest|              Home|      18.89|
+|    CUST018|     3/4/2021|       RetroGlow|          Clothing|      53.99|
+|    CUST019|     2/5/2021|   GourmetTreats|Food and Beverages|      16.55|
+|    CUST020|     1/6/2021|     SpiceFiesta|Food and Beverages|      15.89|
++-----------+-------------+----------------+------------------+-----------+
+only showing top 20 rows
+
+newDF.write.csv("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Solution_1_Pyspark-sql.csv")
+
+2. Join the customer purchase history and product catalog datasets and filter to only include purchases made on June 13, 2020 to find the total revenue generated for that day. (3 marks)
+
+res2 = spark.sql("select c.Purchase_Date, sum(round((p.Price-(p.Price*c.Discount_Applied)/100),2)) as Total_Revenue from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID where c.Purchase_Date == '6/13/2020' group by c.Purchase_Date")
+
+res2.show()
+
++-------------+-------------+
+|Purchase_Date|Total_Revenue|
++-------------+-------------+
+|    6/13/2020|      1451.51|
++-------------+-------------+
+
+3. Join the customer purchase history and product catalog datasets and filter to include only purchases made by customers with a unique visitor count of 250 or more from the website traffic and user behavior dataset. Then, group the dataset by product name and find the total revenue generated for each product. (4 marks)
+
+from collections import namedtuple
+RDD1 = sc.textFile("C:/Users/ananya.shukla01/Desktop/FA3/FA3/Spark Dataset/Website traffic and user behavior.csv")
+
+Web_traffic=namedtuple('Web_traffic',['Date','PageViews','UniqueVisitors','BounceRate','SessionDuration'])
+
+header = RDD1.first()
+
+df3 = RDD1.filter(lambda c: c!=header).map(lambda line :line.split(",")).map(lambda c : Web_traffic (c[0],int(c[1]),int(c[2]),int(c[3]),int(c[4]))).toDF()
+
+from pyspark.sql.functions import date_format
+df = df3.withColumn('Date', date_format(df3['Date'], 'M/dd/yyyy'))
+
+df.createOrReplaceTempView("Web_Traffic")
+
+rdd3 = spark.sql("select p.Product_Name, sum(round((p.Price-(p.Price*c.Discount_Applied)/100),2)) as Total_Revenue from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID where c.Purchase_Date in (select Date from Web_Traffic where UniqueVisitors >= 250) group by p.Product_Name")
+
+rdd3.show()
+
++---------------+-------------+
+|   Product_Name|Total_Revenue|
++---------------+-------------+
+|   SereneWaters|        98.38|
+|     SpicyBites|        20.46|
+|    CozyCushion|        47.08|
+|ClassicElegance|       123.49|
+|     TechMaster|       977.98|
+|       SmartCam|       191.99|
+|       SwiftRun|        76.79|
+|     SmartSense|       711.98|
+|    MountainAir|        90.99|
+|     DiamondCut|       137.24|
+|  MountainTrail|       193.99|
+|  Oceanic Waves|       186.48|
+|      SmartHome|       125.24|
+|      CloudNine|        93.99|
+|       AquaRush|        56.09|
+|     DreamShine|        74.39|
+|    Trailblazer|       673.98|
+|     PowerBoost|       239.99|
+|   CrunchyBites|        10.78|
+|      RetroGlow|        58.49|
++---------------+-------------+
+only showing top 20 rows
+
+4. Find the average rating of products in the Clothing category using the product catalog dataset. (2.5 marks)
+
+spark.sql("select Product_Category, avg(Rating) as Avg_Product_Rating from Product_Catalog where Product_Category == 'Clothing' group by Product_Category").show()
+
++----------------+------------------+
+|Product_Category|Avg_Product_Rating|
++----------------+------------------+
+|        Clothing| 4.153846153846154|
++----------------+------------------+
+
+5. Identify the top 10 customers who spent the most money during the month of December 2021 using the customer purchase history dataset. (2.5 marks)
+
+rdd5 = spark.sql("select c.Customer_ID, c.Purchase_Date, sum(round((p.Price-(p.Price*c.Discount_Applied)/100),2)) as Money_Spent from Customer_Pur c join Product_Catalog p on c.Product_ID == p.Product_ID group by c.Purchase_Date, c.Customer_ID having c.Purchase_Date like '12/%/2021' order by Money_Spent desc limit 10")
+
+rdd5.show()
+
++-----------+-------------+-----------+
+|Customer_ID|Purchase_Date|Money_Spent|
++-----------+-------------+-----------+
+|    CUST009|   12/25/2021|     224.99|
+|    CUST065|   12/25/2021|     125.24|
+|    CUST093|   12/25/2021|     114.74|
+|    CUST037|   12/25/2021|       7.42|
++-----------+-------------+-----------+
+
+
